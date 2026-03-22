@@ -1,4 +1,4 @@
-"""FastAPI backend for LLM Council."""
+"""FastAPI backend for Crosscheck."""
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,12 +12,17 @@ import asyncio
 from . import storage
 from .council import run_full_council, generate_conversation_title, stage1_collect_responses, stage2_collect_rankings, stage3_synthesize_final, calculate_aggregate_rankings
 
-app = FastAPI(title="LLM Council API")
+app = FastAPI(title="Crosscheck API")
 
 # Enable CORS for local development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -26,7 +31,7 @@ app.add_middleware(
 
 class CreateConversationRequest(BaseModel):
     """Request to create a new conversation."""
-    pass
+    id: str | None = None
 
 
 class SendMessageRequest(BaseModel):
@@ -53,7 +58,7 @@ class Conversation(BaseModel):
 @app.get("/")
 async def root():
     """Health check endpoint."""
-    return {"status": "ok", "service": "LLM Council API"}
+    return {"status": "ok", "service": "Crosscheck API"}
 
 
 @app.get("/api/conversations", response_model=List[ConversationMetadata])
@@ -66,6 +71,11 @@ async def list_conversations():
 async def create_conversation(request: CreateConversationRequest):
     """Create a new conversation."""
     conversation_id = str(uuid.uuid4())
+    if request.id is not None:
+        try:
+            conversation_id = str(uuid.UUID(request.id))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Invalid conversation id") from exc
     conversation = storage.create_conversation(conversation_id)
     return conversation
 

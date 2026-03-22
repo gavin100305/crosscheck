@@ -19,6 +19,23 @@ from .config import (
 _REQUEST_SEMAPHORE = asyncio.Semaphore(max(1, GROQ_MAX_CONCURRENT_REQUESTS))
 
 
+_CLIENT_LIMITS = httpx.Limits(max_keepalive_connections=10, max_connections=20, keepalive_expiry=30.0)
+_CLIENT_TRANSPORT = httpx.AsyncHTTPTransport(retries=0, http2=False)
+_CLIENT: httpx.AsyncClient | None = None
+
+
+def _get_client(timeout: float) -> httpx.AsyncClient:
+    global _CLIENT
+    if _CLIENT is None or _CLIENT.is_closed:
+        _CLIENT = httpx.AsyncClient(
+            timeout=httpx.Timeout(timeout, connect=min(30.0, timeout)),
+            limits=_CLIENT_LIMITS,
+            transport=_CLIENT_TRANSPORT,
+            follow_redirects=True,
+        )
+    return _CLIENT
+
+
 def sanitize_model_text(text: Optional[str]) -> str:
     """Remove model chain-of-thought tags and normalize noisy output."""
     if not text:
@@ -71,35 +88,35 @@ async def query_model(
                 if GROQ_PER_REQUEST_DELAY > 0:
                     await asyncio.sleep(GROQ_PER_REQUEST_DELAY)
 
-                async with httpx.AsyncClient(timeout=timeout) as client:
-                    response = await client.post(
-                        GROQ_API_URL,
-                        headers=headers,
-                        json=payload,
-                    )
+                client = _get_client(timeout)
+                response = await client.post(
+                    GROQ_API_URL,
+                    headers=headers,
+                    json=payload,
+                )
 
                     # Retry only on 429 rate limits.
-                    if response.status_code == 429 and attempt < GROQ_RETRY_ATTEMPTS - 1:
-                        delay = GROQ_RETRY_BASE_DELAY * (2 ** attempt)
-                        print(f"Rate limited for model {model}. Retrying in {delay:.1f}s...")
-                        await asyncio.sleep(delay)
-                        continue
+                if response.status_code == 429 and attempt < GROQ_RETRY_ATTEMPTS - 1:
+                    delay = GROQ_RETRY_BASE_DELAY * (2 ** attempt)
+                    print(f"Rate limited for model {model}. Retrying in {delay:.1f}s...")
+                    await asyncio.sleep(delay)
+                    continue
 
-                    response.raise_for_status()
+                response.raise_for_status()
 
-                    data = response.json()
-                    message = data["choices"][0]["message"]
+                data = response.json()
+                message = data["choices"][0]["message"]
 
-                    return {
-                        "content": sanitize_model_text(message.get("content")),
-                        "reasoning_details": message.get("reasoning_details"),
-                    }
+                return {
+                    "content": sanitize_model_text(message.get("content")),
+                    "reasoning_details": message.get("reasoning_details"),
+                }
 
         except httpx.HTTPStatusError as e:
             # Do not retry non-429 HTTP errors.
             print(f"Error querying model {model}: {e}")
             return None
-        except Exception as e:
+        except (httpx.TransportError, httpx.TimeoutException, OSError) as e:
             # Retry transient network errors with backoff.
             if attempt < GROQ_RETRY_ATTEMPTS - 1:
                 delay = GROQ_RETRY_BASE_DELAY * (2 ** attempt)

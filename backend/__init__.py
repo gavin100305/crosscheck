@@ -1,1 +1,1 @@
-"""LLM Council backend package."""
+"""Crosscheck backend package."""

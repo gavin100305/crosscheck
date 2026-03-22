@@ -1,4 +1,4 @@
-"""Configuration for the LLM Council."""
+"""Configuration for Crosscheck."""
 
 import os
 from dotenv import load_dotenv
@@ -22,7 +22,7 @@ CHAIRMAN_MODEL = "openai/gpt-oss-120b"
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 # Groq request controls to reduce 429 responses
-GROQ_MAX_CONCURRENT_REQUESTS = int(os.getenv("GROQ_MAX_CONCURRENT_REQUESTS", "2"))
+GROQ_MAX_CONCURRENT_REQUESTS = int(os.getenv("GROQ_MAX_CONCURRENT_REQUESTS", "1"))
 GROQ_RETRY_ATTEMPTS = int(os.getenv("GROQ_RETRY_ATTEMPTS", "3"))
 GROQ_RETRY_BASE_DELAY = float(os.getenv("GROQ_RETRY_BASE_DELAY", "1.5"))
 GROQ_PER_REQUEST_DELAY = float(os.getenv("GROQ_PER_REQUEST_DELAY", "0.2"))

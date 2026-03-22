@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# LLM Council - Start script
+# Crosscheck - Start script
 
 # Load environment variables from .env if present
 if [ -f .env ]; then
@@ -22,7 +22,7 @@ else
 	echo "Warning: uv not found. Falling back to python3."
 fi
 
-echo "Starting LLM Council..."
+echo "Starting Crosscheck..."
 echo ""
 
 # Start backend
@@ -40,7 +40,7 @@ npm run dev &
 FRONTEND_PID=$!
 
 echo ""
-echo "✓ LLM Council is running!"
+echo "✓ Crosscheck is running!"
 echo "  Backend:  http://localhost:8001"
 echo "  Frontend: http://localhost:5173"
 echo ""
