@@ -8,6 +8,7 @@ import {
   deleteConversationFromFirebase,
   getConversationFromFirebase,
   listConversationsFromFirebase,
+  patchConversationInFirebase,
   saveConversationToFirebase,
 } from "@/lib/conversations"
 import { hasFirebaseConfig } from "@/lib/firebase"
@@ -26,6 +27,20 @@ function loadLocalConversationIds() {
 
 function saveLocalConversationIds(ids) {
   localStorage.setItem(LOCAL_IDS_KEY, JSON.stringify(ids))
+}
+
+function titleFromFirstMessage(text) {
+  const firstLine = (text || "")
+    .split("\n")
+    .map((l) => l.trim())
+    .find(Boolean)
+
+  if (!firstLine) {
+    return "New Conversation"
+  }
+
+  const maxLen = 60
+  return firstLine.length > maxLen ? `${firstLine.slice(0, maxLen).trim()}…` : firstLine
 }
 
 function formatConversationMetadata(conv) {
@@ -152,6 +167,7 @@ function App() {
   const handleDeleteConversation = async (id) => {
     try {
       await deleteConversationFromFirebase(id)
+      setStorageError("")
     } catch (error) {
       console.error("Failed to delete conversation:", error)
       const message = error instanceof Error ? error.message : String(error)
@@ -170,6 +186,34 @@ function App() {
     await loadConversations()
   }
 
+  const handleRenameConversation = async (id, title) => {
+    const nextTitle = (title || "").trim()
+    if (!nextTitle) {
+      return
+    }
+
+    try {
+      await patchConversationInFirebase(id, { title: nextTitle })
+      setStorageError("")
+    } catch (error) {
+      console.error("Failed to rename conversation:", error)
+      const message = error instanceof Error ? error.message : String(error)
+      setStorageError(`Failed to rename conversation. (${message})`)
+      throw error
+    }
+
+    setCurrentConversation((prev) => {
+      if (!prev || prev.id !== id) return prev
+      return { ...prev, title: nextTitle }
+    })
+
+    setConversations((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, title: nextTitle } : c))
+    )
+
+    await loadConversations()
+  }
+
   const handleSendMessage = async (content) => {
     if (!currentConversationId || !currentConversation) return
 
@@ -177,6 +221,18 @@ function App() {
     try {
       // Optimistically add user message to UI
       const userMessage = { role: "user", content }
+
+      const existingUserMessages = (currentConversation.messages || []).filter(
+        (m) => m.role === "user"
+      ).length
+
+      const shouldAutoTitle =
+        existingUserMessages === 0 &&
+        (!currentConversation.title || currentConversation.title === "New Conversation")
+
+      const nextTitle = shouldAutoTitle
+        ? titleFromFirstMessage(content)
+        : currentConversation.title
 
       // Create a partial assistant message that will be updated progressively
       const assistantMessage = {
@@ -194,6 +250,7 @@ function App() {
 
       const baseConversation = {
         ...currentConversation,
+        title: nextTitle,
         messages: [...currentConversation.messages, userMessage, assistantMessage],
       }
 
@@ -289,10 +346,16 @@ function App() {
 
           case 'title_complete':
             setCurrentConversation((prev) => {
-              nextConversation = updateConversationState(prev, (conversation) => ({
-                ...conversation,
-                title: event.data?.title || conversation.title,
-              }))
+              nextConversation = updateConversationState(prev, (conversation) => {
+                const incoming = event.data?.title
+                if (!incoming) {
+                  return conversation
+                }
+                if (conversation.title && conversation.title !== "New Conversation") {
+                  return conversation
+                }
+                return { ...conversation, title: incoming }
+              })
               return nextConversation
             })
             break
@@ -339,6 +402,7 @@ function App() {
         onSelectConversation={handleSelectConversation}
         onNewConversation={handleNewConversation}
         onDeleteConversation={handleDeleteConversation}
+        onRenameConversation={handleRenameConversation}
       />
       <div className="flex min-h-screen flex-1 flex-col">
         {storageError && (

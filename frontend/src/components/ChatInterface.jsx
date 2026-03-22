@@ -87,7 +87,7 @@ export default function ChatInterface({
                     <CardHeader className="pb-1">
                       <CardTitle className="text-sm">Crosscheck</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-3">
+                    <CardContent className="flex flex-col gap-6">
                       {msg.loading?.stage1 && (
                         <div className="text-sm text-muted-foreground">Running Stage 1...</div>
                       )}

@@ -34,11 +34,11 @@ export default function Stage2({ rankings, labelToModel, aggregateRankings }) {
   }
 
   return (
-    <Card>
+    <Card className="border-l-2 border-l-chart-2/50">
       <CardHeader>
         <CardTitle>Stage 2: Peer Rankings</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="flex flex-col gap-4">
         <p className="text-sm text-muted-foreground">
           Model names are shown for readability; source evaluations are anonymized in the prompt.
         </p>
@@ -53,14 +53,14 @@ export default function Stage2({ rankings, labelToModel, aggregateRankings }) {
           </TabsList>
 
           {rankings.map((rank) => (
-            <TabsContent key={rank.model} value={rank.model} className="space-y-3">
+            <TabsContent key={rank.model} value={rank.model} className="flex flex-col gap-3">
               <div className="text-xs text-muted-foreground">{rank.model}</div>
               <MarkdownRenderer content={deAnonymizeText(rank.ranking, labelToModel)} />
 
               {rank.parsed_ranking && rank.parsed_ranking.length > 0 && (
-                <div className="space-y-2 rounded-md border border-border p-3">
+                <div className="flex flex-col gap-2 rounded-md border border-border p-3">
                   <div className="text-sm font-medium">Extracted ranking</div>
-                  <ol className="list-decimal space-y-1 pl-5 text-sm">
+                  <ol className="list-decimal pl-5 text-sm [&>li]:mt-1">
                     {rank.parsed_ranking.map((label, i) => (
                       <li key={`${label}-${i}`}>
                         {labelToModel && labelToModel[label]
@@ -76,7 +76,7 @@ export default function Stage2({ rankings, labelToModel, aggregateRankings }) {
         </Tabs>
 
         {aggregateRankings && aggregateRankings.length > 0 && (
-          <div className="space-y-2 rounded-md border border-border p-3">
+          <div className="flex flex-col gap-2 rounded-md border border-border p-3">
             <div className="text-sm font-medium">Aggregate rankings</div>
             <div className="flex flex-col gap-2">
               {aggregateRankings.map((agg, index) => (

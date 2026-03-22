@@ -8,11 +8,11 @@ export default function Stage3({ finalResponse }) {
   }
 
   return (
-    <Card>
+    <Card className="border-l-2 border-l-chart-3/50">
       <CardHeader>
         <CardTitle>Stage 3: Final Crosscheck Answer</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="flex flex-col gap-3">
         <Badge variant="secondary">
           Synthesized by: {finalResponse.model.split("/")[1] || finalResponse.model}
         </Badge>

@@ -4,6 +4,10 @@
 @import "katex/dist/katex.min.css";
 @import "shadcn/tailwind.css";
 
+.markdown-content .katex-display {
+  margin-block: 0.75rem;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 :root {
