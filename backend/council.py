@@ -1,7 +1,7 @@
 """3-stage LLM Council orchestration."""
 
 from typing import List, Dict, Any, Tuple
-from .openrouter import query_models_parallel, query_model
+from .groq import query_models_parallel, query_model, sanitize_model_text
 from .config import COUNCIL_MODELS, CHAIRMAN_MODEL
 
 
@@ -94,14 +94,15 @@ Now provide your evaluation and ranking:"""
 
     messages = [{"role": "user", "content": ranking_prompt}]
 
-    # Get rankings from all council models in parallel
-    responses = await query_models_parallel(COUNCIL_MODELS, messages)
+    # Only rank with models that succeeded in Stage 1 to reduce wasted calls.
+    ranking_models = [result["model"] for result in stage1_results]
+    responses = await query_models_parallel(ranking_models, messages)
 
     # Format results
     stage2_results = []
     for model, response in responses.items():
         if response is not None:
-            full_text = response.get('content', '')
+            full_text = sanitize_model_text(response.get('content', ''))
             parsed = parse_ranking_from_text(full_text)
             stage2_results.append({
                 "model": model,
@@ -158,19 +159,26 @@ Provide a clear, well-reasoned final answer that represents the council's collec
 
     messages = [{"role": "user", "content": chairman_prompt}]
 
-    # Query the chairman model
+    # Query configured chairman model first, then fallback to a successful Stage 1 model.
     response = await query_model(CHAIRMAN_MODEL, messages)
+    used_model = CHAIRMAN_MODEL
+
+    if response is None and stage1_results:
+        fallback_model = stage1_results[0]["model"]
+        if fallback_model != CHAIRMAN_MODEL:
+            response = await query_model(fallback_model, messages)
+            used_model = fallback_model
 
     if response is None:
         # Fallback if chairman fails
         return {
-            "model": CHAIRMAN_MODEL,
+            "model": used_model,
             "response": "Error: Unable to generate final synthesis."
         }
 
     return {
-        "model": CHAIRMAN_MODEL,
-        "response": response.get('content', '')
+        "model": used_model,
+        "response": sanitize_model_text(response.get('content', ''))
     }
 
 
@@ -265,26 +273,12 @@ async def generate_conversation_title(user_query: str) -> str:
     Returns:
         A short title (3-5 words)
     """
-    title_prompt = f"""Generate a very short title (3-5 words maximum) that summarizes the following question.
-The title should be concise and descriptive. Do not use quotes or punctuation in the title.
-
-Question: {user_query}
-
-Title:"""
-
-    messages = [{"role": "user", "content": title_prompt}]
-
-    # Use gemini-2.5-flash for title generation (fast and cheap)
-    response = await query_model("google/gemini-2.5-flash", messages, timeout=30.0)
-
-    if response is None:
-        # Fallback to a generic title
+    # Generate title locally to avoid an extra API call on first message.
+    words = [w for w in user_query.replace("\n", " ").split(" ") if w.strip()]
+    if not words:
         return "New Conversation"
 
-    title = response.get('content', 'New Conversation').strip()
-
-    # Clean up the title - remove quotes, limit length
-    title = title.strip('"\'')
+    title = " ".join(words[:5])
 
     # Truncate if too long
     if len(title) > 50:

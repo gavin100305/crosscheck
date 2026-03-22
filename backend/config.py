@@ -5,22 +5,27 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# OpenRouter API key
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+# Groq API key
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-# Council members - list of OpenRouter model identifiers
+# Council members - list of Groq model identifiers
 COUNCIL_MODELS = [
-    "openai/gpt-5.1",
-    "google/gemini-3-pro-preview",
-    "anthropic/claude-sonnet-4.5",
-    "x-ai/grok-4",
+    "openai/gpt-oss-120b",
+    "llama-3.3-70b-versatile",
+    "qwen/qwen3-32b",
 ]
 
 # Chairman model - synthesizes final response
-CHAIRMAN_MODEL = "google/gemini-3-pro-preview"
+CHAIRMAN_MODEL = "openai/gpt-oss-120b"
 
-# OpenRouter API endpoint
-OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+# Groq API endpoint
+GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
+
+# Groq request controls to reduce 429 responses
+GROQ_MAX_CONCURRENT_REQUESTS = int(os.getenv("GROQ_MAX_CONCURRENT_REQUESTS", "2"))
+GROQ_RETRY_ATTEMPTS = int(os.getenv("GROQ_RETRY_ATTEMPTS", "3"))
+GROQ_RETRY_BASE_DELAY = float(os.getenv("GROQ_RETRY_BASE_DELAY", "1.5"))
+GROQ_PER_REQUEST_DELAY = float(os.getenv("GROQ_PER_REQUEST_DELAY", "0.2"))
 
 # Data directory for conversation storage
 DATA_DIR = "data/conversations"

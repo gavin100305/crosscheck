@@ -2,12 +2,32 @@
 
 # LLM Council - Start script
 
+# Load environment variables from .env if present
+if [ -f .env ]; then
+	set -a
+	source .env
+	set +a
+fi
+
+if [ -z "${GROQ_API_KEY}" ]; then
+	echo "Error: GROQ_API_KEY is not set."
+	echo "Add it to .env as GROQ_API_KEY=your_key_here or export it in your shell."
+	exit 1
+fi
+
+if command -v uv >/dev/null 2>&1; then
+	BACKEND_CMD=(uv run python -m backend.main)
+else
+	BACKEND_CMD=(python3 -m backend.main)
+	echo "Warning: uv not found. Falling back to python3."
+fi
+
 echo "Starting LLM Council..."
 echo ""
 
 # Start backend
 echo "Starting backend on http://localhost:8001..."
-uv run python -m backend.main &
+"${BACKEND_CMD[@]}" &
 BACKEND_PID=$!
 
 # Wait a bit for backend to start
