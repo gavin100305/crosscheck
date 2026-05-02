@@ -130,8 +130,9 @@ def add_user_message(conversation_id: str, content: str):
 def add_assistant_message(
     conversation_id: str,
     stage1: List[Dict[str, Any]],
-    stage2: List[Dict[str, Any]],
-    stage3: Dict[str, Any]
+    stage2: Any,
+    stage3: Dict[str, Any],
+    metadata: Optional[Dict[str, Any]] = None,
 ):
     """
     Add an assistant message with all 3 stages to a conversation.
@@ -139,19 +140,26 @@ def add_assistant_message(
     Args:
         conversation_id: Conversation identifier
         stage1: List of individual model responses
-        stage2: List of model rankings
-        stage3: Final synthesized response
+        stage2: Debate, rankings, or other stage 2 payload
+        stage3: Final synthesized response payload
+        metadata: Extra pipeline metadata
     """
     conversation = get_conversation(conversation_id)
     if conversation is None:
         raise ValueError(f"Conversation {conversation_id} not found")
 
-    conversation["messages"].append({
+    assistant_message = {
         "role": "assistant",
         "stage1": stage1,
         "stage2": stage2,
-        "stage3": stage3
-    })
+        "stage3": stage3,
+    }
+    if metadata is not None:
+        assistant_message["metadata"] = metadata
+        if metadata.get("pipeline_version") is not None:
+            assistant_message["pipeline_version"] = metadata["pipeline_version"]
+
+    conversation["messages"].append(assistant_message)
 
     save_conversation(conversation)
 

@@ -50,7 +50,7 @@ export default function ChatInterface({
             <CardTitle>Welcome to crosscheck.</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
-            Create a conversation from the sidebar and send a question to start the 3-stage review.
+            Create a conversation from the sidebar and send a question to start the council debate.
           </CardContent>
         </Card>
       </div>
@@ -66,7 +66,7 @@ export default function ChatInterface({
               <CardTitle>Start a conversation</CardTitle>
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
-              Ask your question and Crosscheck will run all three stages: responses, peer ranking, and synthesis.
+              Ask your question and Crosscheck will run openings, debate plus audit, then a judged final conclusion.
             </CardContent>
           </Card>
         ) : (
@@ -89,32 +89,38 @@ export default function ChatInterface({
                     </CardHeader>
                     <CardContent className="flex flex-col gap-6">
                       {msg.loading?.stage1 && (
-                        <div className="text-sm text-muted-foreground">Running Stage 1...</div>
+                        <div className="text-sm text-muted-foreground">Collecting opening answers...</div>
                       )}
                       {msg.stage1 && <Stage1 responses={msg.stage1} />}
 
                       {msg.loading?.stage2 && (
-                        <div className="text-sm text-muted-foreground">Running Stage 2...</div>
+                        <div className="text-sm text-muted-foreground">Running debate and audit...</div>
                       )}
                       {msg.stage2 && (
                         <Stage2
                           rankings={msg.stage2}
+                          pipelineVersion={msg.pipeline_version || msg.metadata?.pipeline_version}
                           labelToModel={msg.metadata?.label_to_model}
                           aggregateRankings={msg.metadata?.aggregate_rankings}
                         />
                       )}
 
                       {msg.loading?.stage3 && (
-                        <div className="text-sm text-muted-foreground">Running Stage 3...</div>
+                        <div className="text-sm text-muted-foreground">Synthesizing and judging the final answer...</div>
                       )}
-                      {msg.stage3 && <Stage3 finalResponse={msg.stage3} />}
+                      {msg.stage3 && (
+                        <Stage3
+                          finalResponse={msg.stage3}
+                          pipelineVersion={msg.pipeline_version || msg.metadata?.pipeline_version}
+                        />
+                      )}
                     </CardContent>
                   </Card>
                 )}
               </div>
             ))}
 
-            {isLoading && <div className="text-sm text-muted-foreground">Consulting models...</div>}
+            {isLoading && <div className="text-sm text-muted-foreground">Consulting the council...</div>}
             <div ref={messagesEndRef} />
           </div>
         )}

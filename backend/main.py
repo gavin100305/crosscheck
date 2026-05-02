@@ -10,7 +10,20 @@ import json
 import asyncio
 
 from . import storage
-from .council import run_full_council, generate_conversation_title, stage1_collect_responses, stage2_collect_rankings, stage3_synthesize_final, calculate_aggregate_rankings
+from .config import (
+    AUDITOR_MODEL,
+    GROQ_API_KEY_2,
+    JUDGE_MODELS,
+    PIPELINE_VERSION,
+    SYNTHESIZER_MODEL,
+)
+from .council import (
+    generate_conversation_title,
+    run_full_council,
+    stage1_collect_responses,
+    stage2_run_debate,
+    stage3_finalize,
+)
 
 app = FastAPI(title="Crosscheck API")
 
@@ -55,6 +68,25 @@ class Conversation(BaseModel):
     messages: List[Dict[str, Any]]
 
 
+def build_stream_metadata(stage1_results: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Build stable metadata for streaming responses."""
+    participating_models = [result["model"] for result in stage1_results]
+    return {
+        "pipeline_version": PIPELINE_VERSION,
+        "participating_models": participating_models,
+        "audit_model": AUDITOR_MODEL,
+        "judge_models": JUDGE_MODELS,
+        "role_assignments": {
+            "debaters": participating_models,
+            "synthesizer": SYNTHESIZER_MODEL,
+            "auditor": AUDITOR_MODEL,
+            "judges": JUDGE_MODELS,
+        },
+        "uses_secondary_groq_key_for_audit_and_judges": bool(GROQ_API_KEY_2),
+        "token_budget_mode": "concise",
+    }
+
+
 @app.get("/")
 async def root():
     """Health check endpoint."""
@@ -92,7 +124,7 @@ async def get_conversation(conversation_id: str):
 @app.post("/api/conversations/{conversation_id}/message")
 async def send_message(conversation_id: str, request: SendMessageRequest):
     """
-    Send a message and run the 3-stage council process.
+    Send a message and run the debate-based council process.
     Returns the complete response with all stages.
     """
     # Check if conversation exists
@@ -111,7 +143,7 @@ async def send_message(conversation_id: str, request: SendMessageRequest):
         title = await generate_conversation_title(request.content)
         storage.update_conversation_title(conversation_id, title)
 
-    # Run the 3-stage council process
+    # Run the debate-based council process
     stage1_results, stage2_results, stage3_result, metadata = await run_full_council(
         request.content
     )
@@ -121,11 +153,13 @@ async def send_message(conversation_id: str, request: SendMessageRequest):
         conversation_id,
         stage1_results,
         stage2_results,
-        stage3_result
+        stage3_result,
+        metadata,
     )
 
     # Return the complete response with metadata
     return {
+        "pipeline_version": metadata.get("pipeline_version"),
         "stage1": stage1_results,
         "stage2": stage2_results,
         "stage3": stage3_result,
@@ -136,7 +170,7 @@ async def send_message(conversation_id: str, request: SendMessageRequest):
 @app.post("/api/conversations/{conversation_id}/message/stream")
 async def send_message_stream(conversation_id: str, request: SendMessageRequest):
     """
-    Send a message and stream the 3-stage council process.
+    Send a message and stream the debate-based council process.
     Returns Server-Sent Events as each stage completes.
     """
     # Check if conversation exists
@@ -166,15 +200,16 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
                 yield f"data: {json.dumps({'type': 'error', 'message': 'All models failed to respond. Please try again.'})}\n\n"
                 return
 
-            # Stage 2: Collect rankings
-            yield f"data: {json.dumps({'type': 'stage2_start'})}\n\n"
-            stage2_results, label_to_model = await stage2_collect_rankings(request.content, stage1_results)
-            aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
-            yield f"data: {json.dumps({'type': 'stage2_complete', 'data': stage2_results, 'metadata': {'label_to_model': label_to_model, 'aggregate_rankings': aggregate_rankings}})}\n\n"
+            metadata = build_stream_metadata(stage1_results)
 
-            # Stage 3: Synthesize final answer
+            # Stage 2: Run debate and audit
+            yield f"data: {json.dumps({'type': 'stage2_start'})}\n\n"
+            stage2_results = await stage2_run_debate(request.content, stage1_results)
+            yield f"data: {json.dumps({'type': 'stage2_complete', 'data': stage2_results, 'metadata': metadata})}\n\n"
+
+            # Stage 3: Synthesize final answer and judge it
             yield f"data: {json.dumps({'type': 'stage3_start'})}\n\n"
-            stage3_result = await stage3_synthesize_final(request.content, stage1_results, stage2_results)
+            stage3_result = await stage3_finalize(request.content, stage1_results, stage2_results)
             yield f"data: {json.dumps({'type': 'stage3_complete', 'data': stage3_result})}\n\n"
 
             # Wait for title generation if it was started
@@ -188,7 +223,8 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
                 conversation_id,
                 stage1_results,
                 stage2_results,
-                stage3_result
+                stage3_result,
+                metadata,
             )
 
             # Send completion event

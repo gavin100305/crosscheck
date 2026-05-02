@@ -7,6 +7,7 @@ load_dotenv()
 
 # Groq API key
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_API_KEY_2 = os.getenv("GROQ_API_KEY_2")
 
 # Council members - list of Groq model identifiers
 COUNCIL_MODELS = [
@@ -15,8 +16,15 @@ COUNCIL_MODELS = [
     "qwen/qwen3-32b",
 ]
 
-# Chairman model - synthesizes final response
-CHAIRMAN_MODEL = "openai/gpt-oss-120b"
+# Role-based model assignments
+SYNTHESIZER_MODEL = "openai/gpt-oss-120b"
+AUDITOR_MODEL = "openai/gpt-oss-120b"
+JUDGE_MODELS = [
+    "llama-3.3-70b-versatile",
+    "qwen/qwen3-32b",
+]
+
+PIPELINE_VERSION = 2
 
 # Groq API endpoint
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"

@@ -237,6 +237,7 @@ function App() {
       // Create a partial assistant message that will be updated progressively
       const assistantMessage = {
         role: "assistant",
+        pipeline_version: 2,
         stage1: null,
         stage2: null,
         stage3: null,
@@ -307,6 +308,7 @@ function App() {
               nextConversation = updateConversationState(prev, (conversation) => {
                 const messages = [...conversation.messages]
                 const lastMsg = { ...messages[messages.length - 1] }
+                lastMsg.pipeline_version = event.metadata?.pipeline_version || lastMsg.pipeline_version || 2
                 lastMsg.stage2 = event.data
                 lastMsg.metadata = event.metadata
                 lastMsg.loading = { ...lastMsg.loading, stage2: false }
@@ -335,6 +337,7 @@ function App() {
               nextConversation = updateConversationState(prev, (conversation) => {
                 const messages = [...conversation.messages]
                 const lastMsg = { ...messages[messages.length - 1] }
+                lastMsg.pipeline_version = lastMsg.pipeline_version || 2
                 lastMsg.stage3 = event.data
                 lastMsg.loading = { ...lastMsg.loading, stage3: false }
                 messages[messages.length - 1] = lastMsg

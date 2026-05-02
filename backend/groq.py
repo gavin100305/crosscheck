@@ -59,7 +59,8 @@ def sanitize_model_text(text: Optional[str]) -> str:
 async def query_model(
     model: str,
     messages: List[Dict[str, str]],
-    timeout: float = 120.0
+    timeout: float = 120.0,
+    api_key: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """
     Query a single model via Groq API.
@@ -72,8 +73,13 @@ async def query_model(
     Returns:
         Response dict with 'content' and optional 'reasoning_details', or None if failed
     """
+    resolved_api_key = api_key or GROQ_API_KEY
+    if not resolved_api_key:
+        print(f"Missing Groq API key for model {model}")
+        return None
+
     headers = {
-        "Authorization": f"Bearer {GROQ_API_KEY}",
+        "Authorization": f"Bearer {resolved_api_key}",
         "Content-Type": "application/json",
     }
 
@@ -131,7 +137,8 @@ async def query_model(
 
 async def query_models_parallel(
     models: List[str],
-    messages: List[Dict[str, str]]
+    messages: List[Dict[str, str]],
+    api_key: Optional[str] = None,
 ) -> Dict[str, Optional[Dict[str, Any]]]:
     """
     Query multiple models in parallel.
@@ -143,6 +150,6 @@ async def query_models_parallel(
     Returns:
         Dict mapping model identifier to response dict (or None if failed)
     """
-    tasks = [query_model(model, messages) for model in models]
+    tasks = [query_model(model, messages, api_key=api_key) for model in models]
     responses = await asyncio.gather(*tasks)
     return {model: response for model, response in zip(models, responses)}

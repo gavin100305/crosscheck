@@ -23,7 +23,7 @@ export default function Stage1({ responses }) {
   return (
     <Card className="border-l-2 border-l-chart-1/50">
       <CardHeader>
-        <CardTitle>Stage 1: Individual Responses</CardTitle>
+        <CardTitle>Stage 1: Council Openings</CardTitle>
       </CardHeader>
       <CardContent>
         <Tabs value={currentTab} onValueChange={setActiveTab}>
